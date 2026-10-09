@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EquipTrack – University of Cebu Main Campus</title>
+<style>
+:root{--bg:#f6f4ee;--card:#fff;--ink:#14213d;--mute:#586277;--line:#dcdbd2;--pri:#14213d;--priInk:#fff;--gold:#e0a82e;--ok:#1d7a3e}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1526;--card:#16213a;--ink:#eef1f7;--mute:#a3aec4;--line:#2a3856;--pri:#e0a82e;--priInk:#1a1400;--gold:#e0a82e;--ok:#7fd39a}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Segoe UI",system-ui,sans-serif;padding-top:env(safe-area-inset-top,0)}
+h1,h2,h3{font-family:Georgia,serif;line-height:1.15;margin:0}
+.w{max-width:1000px;margin:0 auto;padding:0 20px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
+.logo{font:700 22px Georgia,serif;text-decoration:none;color:inherit}
+.logo i{font-style:normal;color:var(--gold)}
+.btn{display:inline-block;padding:12px 22px;border-radius:8px;background:var(--pri);color:var(--priInk);font-weight:600;text-decoration:none;border:2px solid var(--pri)}
+.btn.o{background:none;color:var(--ink);border-color:var(--ink)}
+.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:48px 0 64px}
+.hero h1{font-size:clamp(34px,5.5vw,54px)}
+.hero p{color:var(--mute);font-size:18px;max-width:46ch;margin:18px 0 26px}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.track{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px;position:relative}
+.track:before{content:"UC-MAIN";position:absolute;top:-12px;right:18px;background:var(--gold);color:#1a1400;font:700 12px ui-monospace,Consolas,monospace;padding:6px 10px;border-radius:4px}
+.track h3{font-size:19px}
+.mute{color:var(--mute);font-size:14px}
+.st{list-style:none;margin:16px 0 0;padding:0;border-left:2px solid var(--line)}
+.st li{position:relative;padding:0 0 14px 20px;font-size:14px}
+.st li:last-child{padding:0 0 0 20px}
+.st li:before{content:"";position:absolute;left:-7px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--ok)}
+.st li.n:before{background:var(--gold)}.st li.z:before{background:var(--line)}
+.st b{display:block}
+section{padding:52px 0;border-top:1px solid var(--line)}
+section h2{font-size:clamp(25px,4vw,34px);margin-bottom:8px}
+.lead{color:var(--mute);margin:0 0 26px;max-width:56ch}
+.steps,.roles{display:grid;gap:14px}
+.steps{grid-template-columns:repeat(3,1fr)}
+.roles{grid-template-columns:repeat(4,1fr)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+.box h3{font-size:18px;margin-bottom:6px}
+.box p{margin:0;color:var(--mute);font-size:15px}
+.roles .box{border-top:4px solid var(--gold)}
+.final{text-align:center;padding:60px 0 68px}
+.final p{color:var(--mute);margin:10px auto 22px;max-width:46ch}
+footer{border-top:1px solid var(--line);padding:22px 0;color:var(--mute);font-size:14px}
+@media (max-width:820px){.hero,.steps{grid-template-columns:1fr}.roles{grid-template-columns:1fr 1fr}}
+@media (max-width:500px){.roles{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="w">
+<nav><a class="logo" href="#top">Equip<i>Track</i></a><a class="btn" style="padding:8px 16px" href="app.html">Sign in</a></nav>
+<main id="top">
+<div class="hero">
+<div>
+<h1>Borrow equipment across campus without the paperwork.</h1>
+<p>EquipTrack is the equipment borrowing system of the University of Cebu Main Campus. Check what is available, send a request, and follow it until you pick it up.</p>
+<div class="cta"><a class="btn" href="app.html">Borrow equipment</a><a class="btn o" href="#how">How it works</a></div>
+</div>
+<div class="track" aria-label="Example request">
+<h3>Digital oscilloscope × 2</h3>
+<div class="mute">Reservation · Electronics laboratory</div>
+<ul class="st">
+<li><b>Request sent</b><span class="mute">Student, with dates and purpose</span></li>
+<li><b>Approved by laboratory personnel</b><span class="mute">Stock checked for your dates</span></li>
+<li class="n"><b>Ready for pickup</b><span class="mute">Go to the laboratory</span></li>
+<li class="z"><b>Returned</b><span class="mute">Marked by laboratory personnel</span></li>
+</ul>
+</div>
+</div>
+<section id="how">
+<h2>From request to pickup in three steps</h2>
+<p class="lead">Requests are checked against real stock, so you only ask for what is free on your dates.</p>
+<div class="steps">
+<div class="box"><h3>1. Choose equipment</h3><p>Search the list and see how many units are free today.</p></div>
+<div class="box"><h3>2. Send a request</h3><p>Borrow now or reserve for later, with your dates and purpose.</p></div>
+<div class="box"><h3>3. Get your answer</h3><p>Laboratory personnel approve or reject it. Track it under My requests.</p></div>
+</div>
+</section>
+<section>
+<h2>Built for the people who use the labs</h2>
+<p class="lead">Each account sees only what it needs.</p>
+<div class="roles">
+<div class="box"><h3>Students</h3><p>Borrow, reserve, and track your requests.</p></div>
+<div class="box"><h3>Faculty</h3><p>Reserve equipment for your classes.</p></div>
+<div class="box"><h3>Laboratory personnel</h3><p>Approve requests and request items from the admin.</p></div>
+<div class="box"><h3>Admin</h3><p>Approve laboratory requests and manage inventory.</p></div>
+</div>
+</section>
+<section class="final">
+<h2>Need equipment this week?</h2>
+<p>Sign in with your university account and send your first request.</p>
+<a class="btn" href="app.html">Borrow equipment</a>
+</section>
+</main>
+<footer>EquipTrack · University of Cebu, Main Campus · Cebu City</footer>
+</div>
+</body>
+</html>

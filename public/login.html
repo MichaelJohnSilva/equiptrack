@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EquipTrack · Sign in</title>
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#1b2a24;--mute:#5f6f67;--line:#d9e0db;--pri:#14675a;--priInk:#fff;--no:#a62b2b;--nobg:#f9e1e1;--ok:#1d7a3e;--okbg:#dff3e5}
+@media (prefers-color-scheme:dark){:root{--bg:#101815;--card:#18231f;--ink:#e6eee9;--mute:#9bada4;--line:#2b3b34;--pri:#3fb5a2;--priInk:#06231e;--no:#f08a8a;--nobg:#3d1b1b;--ok:#7fd39a;--okbg:#183623}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+h1,h2{font-family:Georgia,serif;margin:0}
+.box{width:100%;max-width:420px}
+.brand{text-align:center;margin-bottom:16px}
+.brand h1{font-size:30px}
+.brand p{margin:4px 0 0;color:var(--mute);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.tab{flex:1;padding:10px 14px;border:0;background:none;color:var(--mute);font:inherit;cursor:pointer;border-bottom:3px solid transparent}
+.tab.on{color:var(--pri);border-color:var(--pri);font-weight:600}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 3px}
+input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.btn{width:100%;margin-top:16px;padding:11px 14px;border:1px solid var(--pri);border-radius:8px;background:var(--pri);color:var(--priInk);font:inherit;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.5}
+.err{color:var(--no);font-size:13px;margin-top:10px;min-height:18px}
+.hint{font-size:12px;color:var(--mute);margin-top:4px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand">
+    <h1>EquipTrack</h1>
+    <p>Equipment borrowing and reservation</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs" role="tablist">
+      <button class="tab on" id="tabIn" type="button" role="tab" onclick="show('in')">Sign in</button>
+      <button class="tab" id="tabReg" type="button" role="tab" onclick="show('reg')">Register</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div id="paneIn">
+      <label for="liAs">Sign in as</label>
+      <select id="liAs" onchange="asChg()">
+        <option value="student">Student</option>
+        <option value="faculty">Faculty member</option>
+        <option value="lab">Laboratory personnel</option>
+        <option value="admin">Admin</option>
+      </select>
+
+      <label for="liId">ID number</label>
+      <input id="liId" autocomplete="username" placeholder="e.g. 20231234">
+
+      <div id="liDeptBox" class="hide">
+        <label for="liDept">Assigned department</label>
+        <select id="liDept"></select>
+      </div>
+
+      <label for="liPw">Password</label>
+      <input id="liPw" type="password" autocomplete="current-password">
+
+      <div class="err" id="liErr"></div>
+      <button class="btn" id="liBtn" type="button" onclick="signIn()">Sign in</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="paneReg" class="hide">
+      <label for="rgRole">I am a</label>
+      <select id="rgRole" onchange="roleChg()">
+        <option value="student">Student</option>
+        <option value="faculty">Faculty member</option>
+      </select>
+
+      <label for="rgName">Full name</label>
+      <input id="rgName" autocomplete="name">
+
+      <label for="rgId">ID number</label>
+      <input id="rgId" placeholder="e.g. 20231234">
+      <div class="hint" id="rgHint">Student ID number: 7 to 10 digits.</div>
+
+      <label for="rgDept">Enrolled department</label>
+      <select id="rgDept"></select>
+
+      <label for="rgPw">Password (8+ characters)</label>
+      <input id="rgPw" type="password" autocomplete="new-password">
+
+      <label for="rgPw2">Confirm password</label>
+      <input id="rgPw2" type="password" autocomplete="new-password">
+
+      <div class="err" id="rgErr"></div>
+      <button class="btn" id="rgBtn" type="button" onclick="register()">Create account</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Already signed in? Go straight to the app.
+try { var saved = JSON.parse(sessionStorage.getItem('user')); if (saved && saved.token) location.replace('app.html'); } catch (e) {}
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+  return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+// ---------- tabs ----------
+function show(which) {
+  var reg = which === 'reg';
+  $('paneIn').classList.toggle('hide', reg);
+  $('paneReg').classList.toggle('hide', !reg);
+  $('tabIn').classList.toggle('on', !reg);
+  $('tabReg').classList.toggle('on', reg);
+  $('liErr').textContent = ''; $('rgErr').textContent = '';
+}
+
+// ---------- departments (names only, no sign-in needed) ----------
+var DEPTS = [];
+function fillDepts() {
+  var opts = function (first) {
+    return '<option value="">' + first + '</option>' +
+      DEPTS.map(function (d) { return '<option value="' + d.id + '">' + esc(d.name) + '</option>'; }).join('');
+  };
+  $('rgDept').innerHTML = opts('Choose your department');
+  $('liDept').innerHTML = opts('Choose your department');
+}
+fetch('/api/public/departments').then(function (r) { return r.json(); })
+  .then(function (list) { DEPTS = Array.isArray(list) ? list : []; fillDepts(); })
+  .catch(function () { $('rgErr').textContent = 'Could not load the departments. Refresh the page.'; });
+
+// ---------- sign in ----------
+function asChg() {
+  var as = $('liAs').value;
+  $('liDeptBox').classList.toggle('hide', as !== 'lab');
+  $('liId').placeholder = as === 'student' ? 'e.g. 20231234' : as === 'faculty' ? 'e.g. FAC-12345' : as === 'lab' ? 'e.g. LAB-101' : 'e.g. ADMIN';
+}
+
+// Save the account for app.html, then open the app.
+function enter(data) {
+  sessionStorage.setItem('user', JSON.stringify({
+    token: data.token, name: data.name, role: data.role, department: data.department || null
+  }));
+  location.replace('app.html');
+}
+
+async function post(path, body) {
+  var r = await fetch('/api' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  var j = await r.json().catch(function () { return {}; });
+  if (!r.ok) throw new Error(j.error || 'Something went wrong. Try again.');
+  return j;
+}
+
+async function signIn() {
+  var er = $('liErr'), b = $('liBtn'), as = $('liAs').value;
+  er.textContent = '';
+  if (!$('liId').value.trim() || !$('liPw').value) { er.textContent = 'Enter your ID number and password.'; return; }
+  if (as === 'lab' && !$('liDept').value) { er.textContent = 'Choose your assigned department.'; return; }
+  b.disabled = true;
+  try {
+    var data = await post('/login', {
+      idNumber: $('liId').value.trim(), password: $('liPw').value, as: as,
+      departmentId: as === 'lab' ? Number($('liDept').value) : undefined
+    });
+    enter(data);
+  } catch (e) { er.textContent = e.message; b.disabled = false; }
+}
+
+// ---------- register (students and faculty) ----------
+function roleChg() {
+  var fac = $('rgRole').value === 'faculty';
+  $('rgId').placeholder = fac ? 'e.g. FAC-12345' : 'e.g. 20231234';
+  $('rgHint').textContent = fac ? 'Faculty ID number looks like FAC-12345.' : 'Student ID number: 7 to 10 digits.';
+}
+
+async function register() {
+  var er = $('rgErr'), b = $('rgBtn');
+  er.textContent = '';
+  if (!$('rgName').value.trim()) { er.textContent = 'Enter your full name.'; return; }
+  if (!$('rgId').value.trim()) { er.textContent = 'Enter your ID number.'; return; }
+  if (!$('rgDept').value) { er.textContent = 'Choose the department you are enrolled in.'; return; }
+  if ($('rgPw').value.length < 8) { er.textContent = 'Your password needs 8 or more characters.'; return; }
+  if ($('rgPw').value !== $('rgPw2').value) { er.textContent = 'The two passwords do not match.'; return; }
+  b.disabled = true;
+  try {
+    var data = await post('/register', {
+      name: $('rgName').value.trim(), idNumber: $('rgId').value.trim(), password: $('rgPw').value,
+      role: $('rgRole').value, departmentId: Number($('rgDept').value)
+    });
+    enter(data);
+  } catch (e) { er.textContent = e.message; b.disabled = false; }
+}
+
+// Enter key submits the visible form.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+  if (!$('paneIn').classList.contains('hide')) signIn(); else register();
+});
+</script>
+</body>
+</html>
