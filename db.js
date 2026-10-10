@@ -96,8 +96,9 @@ create table if not exists departments(id integer primary key, name text unique 
     receipt_no: 'text', paid_at: 'text',
     return_confirmed_by: 'integer', return_confirmed_at: 'text',
     damaged_qty: 'integer',
-    repaired_qty: 'integer', repaired_at: 'text', repaired_by: 'integer' };
-  for (const [c, t] of Object.entries(NEW_COLS))
+    repaired_qty: 'integer', repaired_at: 'text', repaired_by: 'integer',
+    return_requested_at: 'text', inspected_by: 'integer', inspected_at: 'text' };
+      for (const [c, t] of Object.entries(NEW_COLS))
     if (!cols.includes(c)) await db.run(`alter table requests add column ${c} ${t}`);
 
   for (const tbl of ['users', 'equipment'])

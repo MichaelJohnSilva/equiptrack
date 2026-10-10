@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EquipTrack</title>
+<title>EquipTrack · Sign in</title>
+<meta name="author" content="Michael John Woo Silva">
 <style>
+  .credit{max-width:980px;margin:8px auto 0;padding:16px;text-align:center;font-size:12.5px;line-height:1.6;color:var(--mute)}
+.credit b{color:var(--ink);font-weight:600}
 :root{--bg:#f3f5f2;--card:#fff;--ink:#1b2a24;--mute:#5f6f67;--line:#d9e0db;--pri:#14675a;--priInk:#fff;--ok:#1d7a3e;--okbg:#dff3e5;--no:#a62b2b;--nobg:#f9e1e1;--wait:#8a5a00;--waitbg:#fdf0cf;--info:#26537f;--infobg:#dfeaf6}
 @media (prefers-color-scheme:dark){:root{--bg:#101815;--card:#18231f;--ink:#e6eee9;--mute:#9bada4;--line:#2b3b34;--pri:#3fb5a2;--priInk:#06231e;--ok:#7fd39a;--okbg:#183623;--no:#f08a8a;--nobg:#3d1b1b;--wait:#e8c15d;--waitbg:#3a2f12;--info:#8bb8e8;--infobg:#17293c}}
 *{box-sizing:border-box}
@@ -23,6 +26,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:12px;fl
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
 .tab{padding:10px 14px;border:0;background:none;color:var(--mute);font:inherit;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
 .tab.on{color:var(--pri);border-color:var(--pri);font-weight:600}
+.dot{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;border-radius:99px;background:var(--no);color:var(--bg);font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
 .card h3{font-size:17px}
@@ -52,6 +56,11 @@ details{margin-top:10px;font-size:13px}summary{cursor:pointer;color:var(--pri);f
 </head>
 <body>
 <div class="wrap" id="app"></div>
+<div class="credit">
+  Designed and developed by <b>Michael John Woo Silva</b><br>
+  Cebu City, Philippines<br>
+  &copy; 2026 EquipTrack. All rights reserved.
+</div>
 <div class="modal" id="modal"><div class="card" id="mbody"></div></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -77,11 +86,13 @@ var SRC={eq:'/equipment',inv:'/equipment',mine:'/requests/mine',rev:'/requests/r
 async function go(t){tab=t;q='';
   try{if(SRC[t])D[t]=await api(SRC[t]);if(U.role=='admin'&&(t=='usr'||t=='inv'||t=='dep'))D.dep=await api('/departments');if(t=='usr')D.people=await api('/people')}
   catch(e){if(!T)return;toast(e.message);if(SRC[t])D[t]=D[t]||[]}
+  // The red numbers on the tabs: what is waiting for this lab personnel or admin.
+  if(U.role=='lab'||U.role=='admin'){try{D.alerts=await api('/alerts')}catch(e){}}
   render()}
 function render(){var a=document.getElementById('app');
   if(!U)return;
   var t=tabsFor();if(!tab)return go(t[0][0]);
-  a.innerHTML='<header><div><div class="brand">EquipTrack</div><div class="mute">'+esc(U.name)+' · '+ROLES[U.role]+(U.department?' · '+esc(U.department):'')+'</div></div><button class="btn sm" onclick="logout()">Log out</button></header><div class="tabs">'+t.map(function(x){return'<button class="tab'+(x[0]==tab?' on':'')+'" onclick="go(\''+x[0]+'\')">'+x[1]+'</button>'}).join('')+'</div>'+({eq:eqView,mine:mineView,rev:revView,inv:invView,all:allView,hist:histView,usr:usrView,people:peopleView,stock:stockView,pen:penView,dep:depView}[tab])()}
+  a.innerHTML='<header><div><div class="brand">EquipTrack</div><div class="mute">'+esc(U.name)+' · '+ROLES[U.role]+(U.department?' · '+esc(U.department):'')+'</div></div><button class="btn sm" onclick="logout()">Log out</button></header><div class="tabs">'+t.map(function(x){var n=D.alerts&&D.alerts[x[0]];return'<button class="tab'+(x[0]==tab?' on':'')+'" onclick="go(\''+x[0]+'\')">'+x[1]+(n?' <span class="dot">'+n+'</span>':'')+'</button>'}).join('')+'</div>'+({eq:eqView,mine:mineView,rev:revView,inv:invView,all:allView,hist:histView,usr:usrView,people:peopleView,stock:stockView,pen:penView,dep:depView}[tab])()}
 // ---------- equipment & requests ----------
 // Students and faculty only receive the equipment of their own enrolled department from the server.
 function eqView(){var l=(D.eq||[]).filter(function(e){return(e.name+e.category).toLowerCase().indexOf(q.toLowerCase())>-1});
@@ -89,7 +100,7 @@ function eqView(){var l=(D.eq||[]).filter(function(e){return(e.name+e.category).
   var none=!U.department?'Your account has no department yet. Ask the admin to set your enrolled department.':(q?'No equipment matches your search.':'There is no equipment in your department yet.');
   return head+'<input placeholder="Search equipment" value="'+esc(q)+'" oninput="q=this.value;render();var i=document.querySelector(\'input\');i.focus();i.setSelectionRange(q.length,q.length)" style="max-width:320px;margin-bottom:12px"><div class="grid">'+(l.length?l.map(function(e){return'<div class="card"><h3>'+esc(e.name)+'</h3><div class="mute">'+esc(e.category)+' · '+esc(e.department||'No department')+'</div><p><span class="avail">'+e.available_today+'</span> of '+e.qty+' available today</p><button class="btn p sm" onclick="openReq('+e.id+')">Borrow or reserve</button></div>'}).join(''):'<div class="empty" style="grid-column:1/-1">'+none+'</div>')+'</div>'}
 function openReq(id){var e=D.eq.filter(function(x){return x.id==id})[0];
-  document.getElementById('mbody').innerHTML='<h2>'+esc(e.name)+'</h2><p class="mute">Laboratory personnel review it first, then the admin decides. Borrowed items must be returned with their condition.</p><label for="rt">Request type</label><select id="rt" onchange="typeChg()"><option value="borrow">Borrow now</option><option value="reserve">Reserve for a later date</option></select><label for="rq">Quantity (max '+e.qty+')</label><input id="rq" type="number" min="1" max="'+e.qty+'" value="1"><label for="rf">From</label><input id="rf" type="date" value="'+today()+'" min="'+today()+'" disabled><label for="rtn">Return by</label><input id="rtn" type="date" value="'+today()+'" min="'+today()+'"><label for="rp">Purpose</label><textarea id="rp" rows="2" placeholder="e.g. Biology lab activity"></textarea><div class="err" id="rerr"></div><div class="row" style="margin-top:8px"><button class="btn p" id="rbtn" onclick="sendReq('+id+')">Send request</button><button class="btn" onclick="closeM()">Cancel</button></div>';
+  document.getElementById('mbody').innerHTML='<h2>'+esc(e.name)+'</h2><p class="mute">Laboratory personnel review it first, then the admin decides. Borrowed items must be returned to the laboratory, where the laboratory personnel check their condition.</p><label for="rt">Request type</label><select id="rt" onchange="typeChg()"><option value="borrow">Borrow now</option><option value="reserve">Reserve for a later date</option></select><label for="rq">Quantity (max '+e.qty+')</label><input id="rq" type="number" min="1" max="'+e.qty+'" value="1"><label for="rf">From</label><input id="rf" type="date" value="'+today()+'" min="'+today()+'" disabled><label for="rtn">Return by</label><input id="rtn" type="date" value="'+today()+'" min="'+today()+'"><label for="rp">Purpose</label><textarea id="rp" rows="2" placeholder="e.g. Biology lab activity"></textarea><div class="err" id="rerr"></div><div class="row" style="margin-top:8px"><button class="btn p" id="rbtn" onclick="sendReq('+id+')">Send request</button><button class="btn" onclick="closeM()">Cancel</button></div>';
   document.getElementById('modal').classList.add('on')}
 function typeChg(){var r=document.getElementById('rt').value=='reserve',f=document.getElementById('rf');f.disabled=!r;if(!r)f.value=today()}
 function closeM(){document.getElementById('modal').classList.remove('on')}
@@ -97,15 +108,18 @@ async function sendReq(id){var v=function(i){return document.getElementById(i).v
   b.disabled=true;er.textContent='';
   try{await api('/requests','POST',{equipmentId:id,qty:+v('rq'),type:v('rt'),from:v('rf'),to:v('rtn'),purpose:v('rp')});closeM();toast('Request sent');go('mine')}
   catch(e){er.textContent=e.message;b.disabled=false}}
-// A borrowed item that is out, not yet returned, and past its return date.
-function lateLoan(r){return r.status=='Approved'&&r.type=='borrow'&&!r.return_condition&&r.date_to<today()}
+// A borrowed item that is out, past its return date, and whose return was not sent yet.
+function lateLoan(r){return r.status=='Approved'&&r.type=='borrow'&&!r.return_condition&&!r.return_requested_at&&r.date_to<today()}
+// Out on loan and not checked yet by the laboratory personnel.
+function outLoan(r){return r.status=='Approved'&&r.type=='borrow'&&!r.return_condition}
 function extra(r){var h='',p=r.penalty_status;
   if(lateLoan(r))h+='<div class="od">Return required. This item was due '+esc(r.date_to)+'.</div>';
-  if(r.return_condition)h+='<div class="mute">Returned '+esc((r.returned_at||'').slice(0,10))+' · Condition: <b class="'+(r.return_condition=='Damaged'?'od':'')+'">'+r.return_condition+'</b>'+(r.return_notes?' · '+esc(r.return_notes):'')+'</div>';
+  if(outLoan(r)&&r.return_requested_at)h+='<div class="mute"><b>Returned to the laboratory</b> · '+esc(r.return_requested_at.slice(0,10))+'. Waiting for the laboratory personnel to check the condition.</div>';
+  if(r.return_condition)h+='<div class="mute">Condition checked '+esc((r.returned_at||'').slice(0,10))+(r.inspector?' by laboratory personnel '+esc(r.inspector):'')+' · Condition: <b class="'+(r.return_condition=='Damaged'?'od':'')+'">'+r.return_condition+'</b>'+(r.return_notes?' · '+esc(r.return_notes):'')+'</div>';
   if(r.return_condition=='Damaged'){var dq=r.damaged_qty||r.qty,rp=r.repaired_qty||0,left=dq-rp;
     h+='<div class="od">Damaged units: '+dq+' of '+r.qty+'.'+(left>0?(rp?' '+rp+' repaired or replaced and back in the available stock. '+left+' still not available.':' Not added back to the available stock.'):'')+'</div>';
     if(left<1)h+='<div class="mute"><b>All '+dq+' damaged unit'+(dq==1?'':'s')+' repaired or replaced.</b> Back in the available stock'+(r.repaired_at?' · '+esc(r.repaired_at.slice(0,10)):'')+'.</div>'}
-  if(r.status=='Approved'&&r.return_condition=='Good')h+='<div class="mute"><b>Return sent.</b> Waiting for the admin to confirm.</div>';
+  if(r.status=='Approved'&&r.return_condition=='Good')h+='<div class="mute"><b>Checked: good condition.</b> The admin was notified and will confirm the return.</div>';
   if(r.return_confirmed_at)h+='<div class="mute">Return confirmed by the admin · '+esc(r.return_confirmed_at.slice(0,10))+'</div>';
   if(p=='Pending')h+='<div class="mute"><b>Penalty:</b> waiting for the admin to decide</div>';
   else if(p=='Unpaid'||p=='Paid')h+='<div class="mute"><b>Penalty:</b> ₱'+Number(r.penalty_amount).toFixed(2)+' ('+p+')'+(r.penalty_note?' · '+esc(r.penalty_note):'')+'</div>';
@@ -114,15 +128,16 @@ function extra(r){var h='',p=r.penalty_status;
   return h}
 function reqCard(r,act){return'<div class="card"><div class="row sp"><h3>'+esc(r.equipment)+' × '+r.qty+'</h3><span class="badge '+r.status+'">'+(LBL[r.status]||r.status)+'</span></div><div class="mute">'+(r.type=='borrow'?'Borrow':'Reservation')+' · '+r.date_from+' to '+r.date_to+' · '+esc(r.requester)+' ('+ROLES[r.requester_role]+')</div><p style="margin:6px 0">'+esc(r.purpose)+'</p>'+extra(r)+(act||'')+'</div>'}
 function mineView(){var l=D.mine||[],late=l.filter(lateLoan).length;
-  return(late?'<div class="card" style="border-color:var(--no);margin-bottom:12px"><b class="od">Return required</b><p class="mute" style="margin:4px 0 0">You have '+late+' borrowed item'+(late==1?'':'s')+' past the return date. Return '+(late==1?'it':'them')+' and choose the condition before you can make a new request.</p></div>':'')+
-  (l.length?'<div class="list">'+l.map(function(r){return reqCard(r,r.status=='Pending'?'<button class="btn no sm" onclick="cancelReq('+r.id+')">Cancel request</button>':(r.status=='Approved'&&r.type=='borrow'&&!r.return_condition?'<button class="btn p sm" onclick="openReturn('+r.id+')">Return item</button>':''))}).join('')+'</div>':'<div class="empty">You have no requests yet. Open Equipment to borrow or reserve something.</div>')}
-function revView(){var l=D.rev||[];return l.length?'<div class="list">'+l.map(function(r){var a='',out=r.status=='Approved'&&r.type=='borrow';
+  return(late?'<div class="card" style="border-color:var(--no);margin-bottom:12px"><b class="od">Return required</b><p class="mute" style="margin:4px 0 0">You have '+late+' borrowed item'+(late==1?'':'s')+' past the return date. Bring '+(late==1?'it':'them')+' back to the laboratory and tap Return item before you can make a new request.</p></div>':'')+
+  (l.length?'<div class="list">'+l.map(function(r){return reqCard(r,r.status=='Pending'?'<button class="btn no sm" onclick="cancelReq('+r.id+')">Cancel request</button>':(outLoan(r)&&!r.return_requested_at?'<button class="btn p sm" onclick="openReturnRequest('+r.id+')">Return item</button>':''))}).join('')+'</div>':'<div class="empty">You have no requests yet. Open Equipment to borrow or reserve something.</div>')}
+function revView(){var l=D.rev||[];return l.length?'<div class="list">'+l.map(function(r){var a='';
   if(U.role=='lab'){
     if(r.status=='Pending')a='<button class="btn p sm" onclick="review('+r.id+',\'Forwarded\')">Send to admin</button>';
     else if(r.status=='Forwarded')a='<span class="mute">Waiting for the admin to approve or reject.</span>';
-    else if(out&&!r.return_condition)a='<button class="btn sm" onclick="openReturn('+r.id+')">Mark returned</button>';
+    else if(outLoan(r))a='<button class="btn p sm" onclick="openReturn('+r.id+')">Check returned item</button>';
   }else if(r.status=='Forwarded')a='<div class="row"><button class="btn ok sm" onclick="review('+r.id+',\'Approved\')">Approve</button><button class="btn no sm" onclick="review('+r.id+',\'Rejected\')">Reject</button></div>';
-  else if(out&&r.return_condition=='Good')a='<button class="btn ok sm" onclick="confirmReturn('+r.id+')">Confirm return (+'+r.qty+' available)</button>';
+  else if(r.status=='Approved'&&r.return_condition=='Good')a='<button class="btn ok sm" onclick="confirmReturn('+r.id+')">Confirm return (+'+r.qty+' available)</button>';
+  else if(r.return_condition=='Damaged'&&r.penalty_status=='Pending')a='<button class="btn p sm" onclick="go(\'pen\')">Decide on the penalty</button>';
   return reqCard(r,a)}).join('')+'</div>':'<div class="empty">No requests to review right now.</div>'}
 function allView(){var l=D.all||[];return l.length?'<div class="list">'+l.map(function(r){return reqCard(r)}).join('')+'</div>':'<div class="empty">No requests have been made yet.</div>'}
 async function review(id,st){try{await api('/requests/'+id,'PATCH',{status:st});toast(st=='Forwarded'?'Sent to admin':'Marked '+st.toLowerCase());go(tab)}catch(e){toast(e.message)}}
@@ -150,13 +165,20 @@ function histView(){var all=(D.hist||[]).filter(function(r){return r.type=='borr
 // ---------- returning items and penalties ----------
 // Looks up a request by id in the list that is on screen (My requests or Review requests).
 function findReq(id){return(D[tab]||[]).filter(function(x){return x.id==id})[0]}
+// Step 1 (student or faculty): the item was brought back to the laboratory.
+function openReturnRequest(id){var r=findReq(id);
+  document.getElementById('mbody').innerHTML='<h2>Return item</h2><p class="mute">Bring '+(r?r.qty+' × '+esc(r.equipment):'the item')+' back to the laboratory of <b>'+esc(r&&r.department||'its department')+'</b> first. The laboratory personnel will check its condition and report it to the admin.</p><div class="err" id="rerr"></div><div class="row" style="margin-top:8px"><button class="btn p" id="rbtn" onclick="sendReturnRequest('+id+')">I returned it</button><button class="btn" onclick="closeM()">Cancel</button></div>';
+  document.getElementById('modal').classList.add('on')}
+async function sendReturnRequest(id){var er=document.getElementById('rerr'),b=document.getElementById('rbtn');er.textContent='';b.disabled=true;
+  try{await api('/requests/'+id+'/return-request','POST');closeM();toast('Return sent. The laboratory personnel will check the item.');go(tab)}catch(e){er.textContent=e.message;b.disabled=false}}
+// Step 2 (laboratory personnel): check the item and record its condition. This also notifies the admin.
 function openReturn(id){var r=findReq(id),n=r?r.qty:1;
-  document.getElementById('mbody').innerHTML='<h2>Return item</h2><p class="mute">Every borrowed item must be returned. Check it and choose its condition. Damaged units are not added back to the available stock until the admin marks them repaired or replaced.</p><label for="rc">Condition of the item (required)</label><select id="rc" onchange="dmgChg('+n+')"><option value="">Choose the condition</option><option value="Good">Good, no damage</option><option value="Damaged">Damaged</option></select><div id="dbox" style="display:none"><label for="rdq">How many units are damaged? (of '+n+')</label><input id="rdq" type="number" min="1" max="'+n+'" value="'+n+'"></div><label for="rn">Notes (required if damaged)</label><textarea id="rn" rows="3" placeholder="Describe the condition, or what is damaged"></textarea><div class="err" id="rerr"></div><div class="row" style="margin-top:8px"><button class="btn p" id="rbtn" onclick="sendReturn('+id+')">Submit return</button><button class="btn" onclick="closeM()">Cancel</button></div>';document.getElementById('modal').classList.add('on')}
+  document.getElementById('mbody').innerHTML='<h2>Check returned item</h2><p class="mute">'+(r?esc(r.requester)+' returned '+r.qty+' × '+esc(r.equipment)+'. ':'')+'Check the item and record its condition. The admin is notified of your result. Damaged units are not added back to the available stock until the admin marks them repaired or replaced.</p><label for="rc">Condition of the item (required)</label><select id="rc" onchange="dmgChg('+n+')"><option value="">Choose the condition</option><option value="Good">Good, no damage</option><option value="Damaged">Damaged</option></select><div id="dbox" style="display:none"><label for="rdq">How many units are damaged? (of '+n+')</label><input id="rdq" type="number" min="1" max="'+n+'" value="'+n+'"></div><label for="rn">Notes (required if damaged)</label><textarea id="rn" rows="3" placeholder="Describe the condition, or what is damaged"></textarea><div class="err" id="rerr"></div><div class="row" style="margin-top:8px"><button class="btn p" id="rbtn" onclick="sendReturn('+id+')">Submit and notify admin</button><button class="btn" onclick="closeM()">Cancel</button></div>';document.getElementById('modal').classList.add('on')}
 function dmgChg(n){document.getElementById('dbox').style.display=(document.getElementById('rc').value=='Damaged'&&n>1)?'block':'none'}
 async function sendReturn(id){var er=document.getElementById('rerr'),b=document.getElementById('rbtn'),c=document.getElementById('rc').value;er.textContent='';
   if(!c){er.textContent='Choose the condition of the item.';return}
   b.disabled=true;
-  try{var j=await api('/requests/'+id+'/return','POST',{condition:c,notes:document.getElementById('rn').value,damagedQty:+document.getElementById('rdq').value});closeM();toast(j.waiting?'Return sent. The admin will confirm it.':'Return recorded. Damaged units are not added back to the stock.');go(tab)}catch(e){er.textContent=e.message;b.disabled=false}}
+  try{var j=await api('/requests/'+id+'/return','POST',{condition:c,notes:document.getElementById('rn').value,damagedQty:+document.getElementById('rdq').value});closeM();toast(j.waiting?'Recorded as good. The admin was notified to confirm the return.':'Recorded as damaged. The admin was notified to decide on a penalty.');go(tab)}catch(e){er.textContent=e.message;b.disabled=false}}
 function penView(){var l=D.pen||[],adm=U.role=='admin';
   return(adm?'':'<p class="mute" style="margin-bottom:10px">Damaged returns in your department. The admin decides on penalties.</p>')+(l.length?'<div class="list">'+l.map(function(r){var a='';
   if(adm&&r.penalty_status=='Pending')a='<div class="row"><input id="pa'+r.id+'" type="number" min="1" step="0.01" placeholder="Amount (₱)" aria-label="Penalty amount" style="width:140px"><input id="pn'+r.id+'" placeholder="Reason" aria-label="Reason" style="flex:1;min-width:140px"><button class="btn p sm" onclick="penalty('+r.id+',\'set\')">Set penalty</button><button class="btn sm" onclick="penalty('+r.id+',\'waive\')">No penalty</button></div>';
@@ -170,7 +192,7 @@ async function penalty(id,action){var b={action:action};
 function stockView(){var l=D.stock||[],t=today();
   return l.length?'<div class="grid">'+l.map(function(e){var out=e.qty?Math.round((e.qty-e.available)/e.qty*100):0;
     return'<div class="card"><h3>'+esc(e.name)+'</h3><div class="mute">'+esc(e.category)+'</div><div class="nums" style="grid-template-columns:repeat(5,1fr)"><div><b>'+e.qty+'</b><span>Total</span></div><div><b>'+e.borrowed+'</b><span>Borrowed</span></div><div><b>'+e.reserved+'</b><span>Reserved</span></div><div><b class="'+(e.damaged?'low':'')+'">'+e.damaged+'</b><span>Damaged</span></div><div><b class="'+(e.available<1?'low':'')+'">'+e.available+'</b><span>Left today</span></div></div><div class="bar"><i style="width:'+Math.min(Math.max(out,0),100)+'%"></i></div>'+(e.damaged?'<div class="mute" style="margin-top:6px">'+e.damaged+' damaged unit'+(e.damaged==1?' is':'s are')+' not counted as available.</div>':'')+
-    (e.holders.length?'<details><summary>Who has it ('+e.holders.length+')</summary>'+e.holders.map(function(h){var od=h.type=='borrow'&&h.date_to<t&&!h.return_condition;return'<p style="margin:6px 0">'+esc(h.requester)+' ('+ROLES[h.role]+', '+esc(h.id_number)+') × '+h.qty+'<br><span class="mute">'+(h.type=='borrow'?'Borrowed · due ':'Reserved · '+h.date_from+' to ')+h.date_to+'</span>'+(od?' <span class="od">Overdue</span>':'')+(h.return_condition?' <span class="mute">Returned, waiting for the admin to confirm</span>':'')+'</p>'}).join('')+'</details>':'<div class="mute" style="margin-top:8px">Nobody has this item right now.</div>')+'</div>'}).join('')+'</div>':'<div class="empty">No equipment yet.</div>'}
+    (e.holders.length?'<details><summary>Who has it ('+e.holders.length+')</summary>'+e.holders.map(function(h){var od=h.type=='borrow'&&h.date_to<t&&!h.return_condition&&!h.return_requested_at;return'<p style="margin:6px 0">'+esc(h.requester)+' ('+ROLES[h.role]+', '+esc(h.id_number)+') × '+h.qty+'<br><span class="mute">'+(h.type=='borrow'?'Borrowed · due ':'Reserved · '+h.date_from+' to ')+h.date_to+'</span>'+(od?' <span class="od">Overdue</span>':'')+(h.return_condition?' <span class="mute">Checked, waiting for the admin to confirm</span>':(h.type=='borrow'&&h.return_requested_at?' <span class="mute">Returned, waiting for the lab to check</span>':''))+'</p>'}).join('')+'</details>':'<div class="mute" style="margin-top:8px">Nobody has this item right now.</div>')+'</div>'}).join('')+'</div>':'<div class="empty">No equipment yet.</div>'}
 // ---------- students & faculty (admin and lab) ----------
 function peopleView(){var l=(D.people||[]).filter(function(p){return(p.name+' '+p.id_number).toLowerCase().indexOf(q.toLowerCase())>-1});
   return'<input placeholder="Search by name or ID number" value="'+esc(q)+'" oninput="q=this.value;render();var i=document.querySelector(\'input\');i.focus();i.setSelectionRange(q.length,q.length)" style="max-width:320px;margin-bottom:12px">'+(U.role=='lab'?'<p class="mute" style="margin-bottom:10px">People who requested equipment from your department.</p>':'')+'<div class="grid">'+(l.length?l.map(function(p){return'<div class="card"><h3>'+esc(p.name)+'</h3><div class="mute">'+ROLES[p.role]+' · ID '+esc(p.id_number)+'</div><div class="mute">Enrolled in: '+esc(p.department||'No department')+'</div><p>'+p.total+' request'+(p.total==1?'':'s')+' · <span class="avail">'+p.borrowing+'</span> borrowing now</p><button class="btn p sm" onclick="openPerson('+p.id+')">View details</button></div>'}).join(''):'<div class="empty">No students or faculty found.</div>')+'</div>'}

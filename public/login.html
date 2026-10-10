@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EquipTrack · Sign in</title>
+<meta name="author" content="Michael John Woo Silva">
 <style>
+  .credit{max-width:980px;margin:8px auto 0;padding:16px;text-align:center;font-size:12.5px;line-height:1.6;color:var(--mute)}
+.credit b{color:var(--ink);font-weight:600}
 :root{--bg:#f3f5f2;--card:#fff;--ink:#1b2a24;--mute:#5f6f67;--line:#d9e0db;--pri:#14675a;--priInk:#fff;--no:#a62b2b;--nobg:#f9e1e1;--ok:#1d7a3e;--okbg:#dff3e5}
 @media (prefers-color-scheme:dark){:root{--bg:#101815;--card:#18231f;--ink:#e6eee9;--mute:#9bada4;--line:#2b3b34;--pri:#3fb5a2;--priInk:#06231e;--no:#f08a8a;--nobg:#3d1b1b;--ok:#7fd39a;--okbg:#183623}}
 *{box-sizing:border-box}
@@ -26,6 +29,16 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 .err{color:var(--no);font-size:13px;margin-top:10px;min-height:18px}
 .hint{font-size:12px;color:var(--mute);margin-top:4px}
 .hide{display:none}
+
+/* Back to home link, below the main button */
+.back-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);text-align:center}
+.back{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;
+  color:var(--mute);font:600 14px "Segoe UI",system-ui,sans-serif;text-decoration:none;
+  transition:color .15s}
+.back svg{width:16px;height:16px;transition:transform .15s}
+.back:hover{color:var(--pri)}
+.back:hover svg{transform:translateX(-3px)}
+.back:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -92,6 +105,14 @@ input:focus-visible,select:focus-visible,.btn:focus-visible,.tab:focus-visible{o
 
       <div class="err" id="rgErr"></div>
       <button class="btn" id="rgBtn" type="button" onclick="register()">Create account</button>
+    </div>
+
+    <!-- BACK TO HOME (shown under both forms) -->
+    <div class="back-wrap">
+      <a class="back" href="/" aria-label="Back to home page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to home
+      </a>
     </div>
   </div>
 </div>

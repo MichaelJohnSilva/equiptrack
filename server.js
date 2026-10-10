@@ -220,22 +220,26 @@ app.delete('/api/equipment/:id', auth, only('admin', 'lab'), ah(async (req, res)
 // ---------- Requests ----------
 // Every request comes with the equipment's department, plus the requester's name,
 // role, ID number and enrolled department (used by the Borrow history tab).
+// "inspector" is the laboratory personnel who checked the returned item.
 const SELECT = `select r.*, e.name equipment, e.department_id department_id, d.name department,
-  u.name requester, u.role requester_role, u.id_number requester_id, ud.name requester_department
+  u.name requester, u.role requester_role, u.id_number requester_id, ud.name requester_department,
+  li.name inspector
   from requests r join equipment e on e.id=r.equipment_id
   left join departments d on d.id=e.department_id
   join users u on u.id=r.user_id
-  left join departments ud on ud.id=u.department_id`;
+  left join departments ud on ud.id=u.department_id
+  left join users li on li.id=r.inspected_by`;
 
 // Students and faculty request. The lab reviews and forwards it, then the admin decides.
 // They can only request equipment of their own enrolled department.
 app.post('/api/requests', auth, only('student', 'faculty'), ah(async (req, res) => {
   const { equipmentId, qty, type, from, to, purpose } = req.body;
   const today = new Date().toISOString().slice(0, 10);
-  // Borrowed items past their return date must be returned (with their condition) before a new request.
+  // Borrowed items past their return date must be returned to the laboratory before a new request.
+  // Once the borrower taps "Return item" they are no longer blocked, even if the lab did not check the item yet.
   const late = (await db.get(`select count(*) n from requests where user_id=? and type='borrow'
-    and status='Approved' and return_condition is null and date_to<?`, req.user.id, today)).n;
-  if (late) return res.status(403).json({ error: 'You still have borrowed items that must be returned. Open My requests, tap Return item and choose the condition.' });
+    and status='Approved' and return_condition is null and return_requested_at is null and date_to<?`, req.user.id, today)).n;
+  if (late) return res.status(403).json({ error: 'You still have borrowed items that must be returned. Bring them back to the laboratory, then open My requests and tap Return item.' });
   if (!['borrow', 'reserve'].includes(type)) return res.status(400).json({ error: 'Choose borrow or reserve.' });
   if (!isDate(from) || !isDate(to) || to < from || from < today) return res.status(400).json({ error: 'Check your dates.' });
   if (!(qty >= 1) || !purpose || !purpose.trim()) return res.status(400).json({ error: 'Quantity and purpose are required.' });
@@ -255,12 +259,14 @@ app.get('/api/requests/mine', auth, ah(async (req, res) =>
   res.json(await db.all(`${SELECT} where r.user_id=? order by r.id desc`, req.user.id))));
 
 // Lab sees the requests of its own department. Admin sees only the ones the lab sent forward.
-// For the admin, requests that need a decision (forwarded, or a return to confirm) come first.
+// What needs the person's attention comes first: for the admin a forwarded request, a good return to
+// confirm, or a damaged item waiting for a penalty decision; for the lab a pending request or a returned item to check.
 app.get('/api/requests/review', auth, only('lab', 'admin'), ah(async (req, res) => {
   const adm = req.user.role === 'admin';
   const lab = req.user.role === 'lab';
   const hide = adm ? "and r.status not in ('Pending','Cancelled')" : '';
-  const first = adm ? "(r.status='Forwarded' or (r.status='Approved' and r.return_condition='Good')) desc, " : '';
+  const first = adm ? "(r.status='Forwarded' or (r.status='Approved' and r.return_condition='Good') or r.penalty_status='Pending') desc, "
+    : "(r.status='Pending' or (r.status='Approved' and r.return_condition is null and r.return_requested_at is not null)) desc, ";
   res.json(await db.all(`${SELECT} where u.role in ('student','faculty') ${hide} ${lab ? 'and e.department_id=?' : ''} order by ${first}r.id desc`,
     ...(lab ? [req.user.department_id] : [])));
 }));
@@ -342,36 +348,52 @@ app.get('/api/people/:id', auth, only('admin', 'lab'), ah(async (req, res) => {
 }));
 
 // ---------- Returns and penalties ----------
-// The borrower (for their own loan) or the lab records the item's condition when it comes back.
-// A Good return waits for the admin to confirm it. Only then does the stock go back up.
-// A Damaged return goes straight to the admin's Penalties tab. The damaged units are NOT added
-// back to the available stock until the admin marks them repaired or replaced.
-// Any good units of the same loan (qty minus damaged) do go back.
-app.post('/api/requests/:id/return', auth, only('student', 'faculty', 'lab'), ah(async (req, res) => {
+// How a return works:
+//  1. The borrower (student or faculty) returns the item to the laboratory and taps "Return item".
+//  2. The laboratory personnel of the item's department check the item and record its condition.
+//     That report is also the notice to the admin.
+//       Good    -> the admin confirms the return, and only then does the stock go back up.
+//       Damaged -> it goes to the admin's Penalties tab. The damaged units are NOT added back to the
+//                  available stock until the admin marks them repaired or replaced.
+//                  Any good units of the same loan (qty minus damaged) do go back.
+app.post('/api/requests/:id/return-request', auth, only('student', 'faculty'), ah(async (req, res) => {
   const r = await db.get(`${SELECT} where r.id=?`, req.params.id);
   if (!r) return res.status(404).json({ error: 'Request not found.' });
-  if (req.user.role !== 'lab' && r.user_id !== req.user.id) return res.status(403).json({ error: 'You can only return your own items.' });
-  if (req.user.role === 'lab' && r.department_id !== req.user.department_id)
+  if (r.user_id !== req.user.id) return res.status(403).json({ error: 'You can only return your own items.' });
+  if (r.status !== 'Approved' || r.type !== 'borrow') return res.status(400).json({ error: 'This item is not out on loan.' });
+  if (r.return_condition || r.return_requested_at)
+    return res.status(400).json({ error: 'The return was already sent. The laboratory personnel will check the item.' });
+  await db.run('update requests set return_requested_at=? where id=?', new Date().toISOString(), r.id);
+  log(`RETURN SENT #${r.id}   ${r.requester}'s ${r.qty} x ${r.equipment}  waiting for the laboratory personnel of ${r.department || 'its department'} to check it`);
+  res.json({ ok: true });
+}));
+
+// Only the laboratory personnel of the item's department check a returned item and record its condition.
+app.post('/api/requests/:id/return', auth, only('lab'), ah(async (req, res) => {
+  const r = await db.get(`${SELECT} where r.id=?`, req.params.id);
+  if (!r) return res.status(404).json({ error: 'Request not found.' });
+  if (r.department_id !== req.user.department_id)
     return res.status(403).json({ error: 'This item belongs to another department.' });
   if (r.status !== 'Approved' || r.type !== 'borrow') return res.status(400).json({ error: 'This item is not out on loan.' });
-  if (r.return_condition) return res.status(400).json({ error: 'The return was already sent. It is waiting for the admin to confirm.' });
+  if (r.return_condition) return res.status(400).json({ error: 'The condition of this item was already recorded.' });
   const cond = req.body.condition, notes = String(req.body.notes || '').trim();
   if (!['Good', 'Damaged'].includes(cond)) return res.status(400).json({ error: 'Choose the condition of the item.' });
   if (cond === 'Damaged' && notes.length < 5) return res.status(400).json({ error: 'Describe what is damaged.' });
   const now = new Date().toISOString();
   if (cond === 'Good') {
-    await db.run(`update requests set return_condition='Good', return_notes=?, returned_at=? where id=?`, notes, now, r.id);
-    log(`RETURN SENT #${r.id}   ${r.requester}'s ${r.qty} x ${r.equipment}  condition: GOOD  recorded by ${req.user.name} (${req.user.role})  waiting for the admin to confirm`);
+    await db.run(`update requests set return_condition='Good', return_notes=?, returned_at=?, inspected_by=?, inspected_at=? where id=?`,
+      notes, now, req.user.id, now, r.id);
+    log(`CONDITION CHECKED #${r.id}   ${r.requester}'s ${r.qty} x ${r.equipment}  GOOD  by ${req.user.name} (lab)  admin notified, waiting for the admin to confirm`);
     return res.json({ ok: true, waiting: true });
   }
-  // How many units are damaged. A single unit is always 1. Otherwise the person enters it.
+  // How many units are damaged. A single unit is always 1. Otherwise the lab personnel enter it.
   const dq = r.qty === 1 ? 1 : Number(req.body.damagedQty);
   if (!Number.isInteger(dq) || dq < 1 || dq > r.qty)
     return res.status(400).json({ error: 'Enter how many units are damaged (1 to ' + r.qty + ').' });
-  await db.run(`update requests set status='Returned', return_condition='Damaged', return_notes=?, returned_at=?, penalty_status='Pending', damaged_qty=?, repaired_qty=0 where id=?`,
-    notes, now, dq, r.id);
-  log(`ITEM RETURNED #${r.id}   ${r.requester}'s ${r.qty} x ${r.equipment}  condition: DAMAGED (${dq} damaged, not added back to the available stock)  recorded by ${req.user.name} (${req.user.role})`);
-  log(`DAMAGE REPORTED #${r.id}   waiting for the admin to decide on a penalty`);
+  await db.run(`update requests set status='Returned', return_condition='Damaged', return_notes=?, returned_at=?, penalty_status='Pending', damaged_qty=?, repaired_qty=0, inspected_by=?, inspected_at=? where id=?`,
+    notes, now, dq, req.user.id, now, r.id);
+  log(`CONDITION CHECKED #${r.id}   ${r.requester}'s ${r.qty} x ${r.equipment}  DAMAGED (${dq} damaged, not added back to the available stock)  by ${req.user.name} (lab)`);
+  log(`ADMIN NOTIFIED #${r.id}   damaged item, waiting for the admin to decide on a penalty`);
   res.json({ ok: true, waiting: false });
 }));
 
@@ -523,7 +545,7 @@ app.post('/api/departments/:id/lab', auth, only('admin'), ah(async (req, res) =>
 // ---------- Stock: what is borrowed, reserved, damaged and left (lab and admin) ----------
 app.get('/api/stock', auth, only('lab', 'admin'), ah(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
-  const holders = await db.all(`select r.id, r.equipment_id, r.qty, r.type, r.date_from, r.date_to, r.return_condition,
+  const holders = await db.all(`select r.id, r.equipment_id, r.qty, r.type, r.date_from, r.date_to, r.return_condition, r.return_requested_at,
       u.name requester, u.id_number, u.role
     from requests r join users u on u.id=r.user_id
     where r.status='Approved' and (r.type='borrow' or r.date_to>=?) order by r.date_to`, today);
@@ -537,6 +559,20 @@ app.get('/api/stock', auth, only('lab', 'admin'), ah(async (req, res) => {
       available: await available(e.id, today, today), holders: h });
   }
   res.json(rows);
+}));
+
+// The numbers shown on the tabs: what is waiting for this person.
+app.get('/api/alerts', auth, only('lab', 'admin'), ah(async (req, res) => {
+  if (req.user.role === 'lab') {
+    const d = req.user.department_id;
+    const send = (await db.get(`select count(*) n from requests r join equipment e on e.id=r.equipment_id where e.department_id=? and r.status='Pending'`, d)).n;
+    const check = (await db.get(`select count(*) n from requests r join equipment e on e.id=r.equipment_id where e.department_id=? and r.status='Approved' and r.type='borrow' and r.return_condition is null and r.return_requested_at is not null`, d)).n;
+    return res.json({ rev: send + check });
+  }
+  const fwd = (await db.get(`select count(*) n from requests where status='Forwarded'`)).n;
+  const good = (await db.get(`select count(*) n from requests where status='Approved' and return_condition='Good'`)).n;
+  const pen = (await db.get(`select count(*) n from requests where return_condition='Damaged' and penalty_status='Pending'`)).n;
+  res.json({ rev: fwd + good, pen });
 }));
 
 // Show the real error instead of a blank "Something went wrong".
