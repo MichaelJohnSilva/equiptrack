@@ -5,8 +5,30 @@
 const { createClient } = require('@libsql/client');
 const bcrypt = require('bcryptjs');
 
-const url = process.env.TURSO_DATABASE_URL || 'file:' + (process.env.DB_FILE || 'borrow.db');
-const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN || undefined });
+// Values pasted into Render often carry a stray space, new line or quotation marks.
+// A bad character in the token makes Turso answer with an error, so remove them here.
+const tidy = v => String(v || '').replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, '');
+const tursoUrl = tidy(process.env.TURSO_DATABASE_URL);
+const tursoToken = tidy(process.env.TURSO_AUTH_TOKEN);
+const url = tursoUrl || 'file:' + (process.env.DB_FILE || 'borrow.db');
+const client = createClient({ url, authToken: tursoToken || undefined });
+
+// Checks the connection first and says what is wrong in plain words.
+// It prints the database address and the token length, never the token itself.
+async function ping() {
+  if (!tursoUrl) { console.log('Database: local file ' + url); return; }
+  let host = url;
+  try { host = new URL(url.replace(/^libsql:/, 'https:')).host; } catch {}
+  console.log('Database: Turso at ' + host + ' (token length ' + tursoToken.length + ')');
+  if (!/^(libsql|https|wss):\/\//.test(url)) throw new Error('TURSO_DATABASE_URL must start with libsql:// . It now starts with "' + url.slice(0, 12) + '".');
+  if (!tursoToken) throw new Error('TURSO_AUTH_TOKEN is empty. Add it in the Environment settings.');
+  if (tursoToken.split('.').length !== 3) throw new Error('TURSO_AUTH_TOKEN does not look like a full token (it should have three parts separated by dots). Copy the whole token again.');
+  try { await client.execute('select 1'); }
+  catch (e) {
+    throw new Error('Cannot connect to Turso (' + (e.code || 'error') + ': ' + e.message + '). Check that the URL belongs to this database and that the token is the current one for it.');
+  }
+  console.log('Connected to Turso.');
+}
 
 const clean = args => args.map(a => (a === undefined ? null : a));
 const toObj = (rs, row) => {
@@ -38,6 +60,7 @@ const DEFAULT_DEPT = 'College of Computer Studies';
 
 // Creates the tables and adds any missing columns. Safe to run every time the server starts.
 async function initSchema() {
+  await ping();
   await db.exec(`
 create table if not exists users(
   id integer primary key, name text not null, id_number text unique not null, hash text not null,
